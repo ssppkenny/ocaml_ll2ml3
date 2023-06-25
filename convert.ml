@@ -1,6 +1,8 @@
 open Avcodec
 open Split
 
+module T = Tqdm.Tqdm
+
 let () = Printexc.record_backtrace true
 
 module Compat = struct
@@ -10,6 +12,13 @@ module Compat = struct
   include Bigarray.Genarray
   include Unix
 end
+
+let myprog () = T.with_bar 200 ~f:(fun tqdm -> 
+    for v = 1 to 200 do 
+        Unix.sleepf 0.1;
+        T.update tqdm v
+    done;
+) 
 
 let split_to_files flac_name cue_name =
     let p1 = String.cat "shntool split -f " "\"" in
@@ -25,6 +34,8 @@ let () =
       "      usage: %s <input audio file>  <input cue file>"
       Sys.argv.(0);
     exit 1);
+
+  let _ = Thread.create myprog () in ();
 
   Avutil.Log.set_level `Debug;
   Avutil.Log.set_callback print_string;
@@ -101,5 +112,6 @@ let () =
 
   Gc.full_major ();
   Gc.full_major ();
-  let _ = split_to_files (String.cat Sys.argv.(1) ".flac") Sys.argv.(2) in ()
+  let new_flac = (String.cat Sys.argv.(1) ".flac") in 
+  let _ = split_to_files new_flac Sys.argv.(2) in Sys.remove new_flac
 
