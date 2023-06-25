@@ -23,7 +23,7 @@ let myprog () = T.with_bar 200 ~f:(fun tqdm ->
 let split_to_files flac_name cue_name =
     let p1 = String.cat "shntool split -f " "\"" in
     let p2 = String.cat p1 cue_name in 
-    let p3 = String.cat p2 "\" -o flac -t %t \"" in
+    let p3 = String.cat p2 "\" -o flac -t %n-%t \"" in
     let p4 = String.cat p3 flac_name in
     let command = String.cat p4 "\"" in
     mysplit command
