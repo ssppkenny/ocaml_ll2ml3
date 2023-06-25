@@ -1,0 +1,11 @@
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))
+
+
+(executable
+ (name convert)
+ (libraries ctypes.foreign stdio ffmpeg-av ffmpeg-avfilter)
+ (flags     :standard -cclib -lshn -ccopt -L/Users/ugxnbmikhs/code/ocaml/project1/split))
+

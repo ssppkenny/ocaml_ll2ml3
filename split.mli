@@ -1,0 +1,2 @@
+val mysplit : string -> int
+
