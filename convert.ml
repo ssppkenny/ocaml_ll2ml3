@@ -13,11 +13,13 @@ module Compat = struct
   include Unix
 end
 
-let myprog () = T.with_bar 200 ~f:(fun tqdm -> 
-    for v = 1 to 200 do 
+let myprog filename = T.with_bar 1 ~f:(fun tqdm -> 
+    Printf.printf "Converting %s\n" filename;
+    for v = 1 to 1 do 
         Unix.sleepf 0.1;
         T.update tqdm v
     done;
+    T.update tqdm 1;
 ) 
 
 let split_to_files flac_name cue_name =
@@ -28,30 +30,28 @@ let split_to_files flac_name cue_name =
     let command = String.cat p4 "\"" in
     mysplit command
 
-let () =
-  if Array.length Sys.argv < 3 then (
-    Printf.eprintf
-      "      usage: %s <input audio file>  <input cue file>"
-      Sys.argv.(0);
-    exit 1);
+let find_files_to_convert folder input_file =
+    let list_files = Sys.readdir folder in
+    let flac_files = List.filter (fun x -> String.equal (Caml.Filename.extension x) ".flac") (Array.to_list list_files) in
+    let flac_files_without_input = List.filter (fun x -> not (String.equal x input_file)) flac_files in
+    List.filter (fun x -> not (String.equal x (String.cat input_file ".flac"))) flac_files_without_input
 
-  let _ = Thread.create myprog () in ();
+let myconvert input_file output_file from_codec to_codec =
 
-  Avutil.Log.set_level `Debug;
-  Avutil.Log.set_callback print_string;
-
-  let in_codec = Audio.find_decoder_by_name "flac" in
+  let _ = Thread.create myprog input_file in 
+  let in_codec = Audio.find_decoder_by_name from_codec in
 
   let parser = Audio.create_parser in_codec in
   let decoder = Audio.create_decoder in_codec in
 
-  let in_fd = Unix.openfile Sys.argv.(1) [Unix.O_RDONLY] 0 in
+  let in_fd = Unix.openfile input_file [Unix.O_RDONLY] 0 in
 
-  let out_file = Av.open_output (String.cat Sys.argv.(1) ".flac") in
-  let codec = Avcodec.Audio.find_encoder_by_name "flac" in
+  let out_file = Av.open_output output_file in
+  let codec = Avcodec.Audio.find_encoder_by_name to_codec in
   let channel_layout = Avcodec.Audio.find_best_channel_layout codec `Stereo in
   let sample_format = Avcodec.Audio.find_best_sample_format codec `Dbl in
-  let sample_rate = Avcodec.Audio.find_best_sample_rate codec 96000 in
+  let rate = if to_codec == "flac" then 96000 else 48000 in
+  let sample_rate = Avcodec.Audio.find_best_sample_rate codec rate in
   let time_base = { Avutil.num = 1; den = sample_rate } in
   let out_stream =
     Av.new_audio_stream ~channel_layout ~sample_format ~sample_rate ~time_base
@@ -112,6 +112,28 @@ let () =
 
   Gc.full_major ();
   Gc.full_major ();
+  ()
+
+let convert_to_mp3 filename =
+    let output_file = String.cat (Caml.Filename.remove_extension filename) ".mp3" in
+    let _ = myconvert filename  output_file "flac" "libmp3lame" in
+    Sys.remove filename
+
+let () =
+  if Array.length Sys.argv < 3 then (
+    Printf.eprintf
+      "      usage: %s <input audio file>  <input cue file>"
+      Sys.argv.(0);
+    exit 1);
+
+  let _ = Printf.printf "Converting %s\n" Sys.argv.(1) in ();
+
+  Avutil.Log.set_level `Debug;
+  Avutil.Log.set_callback print_string;
+  
   let new_flac = (String.cat Sys.argv.(1) ".flac") in 
-  let _ = split_to_files new_flac Sys.argv.(2) in Sys.remove new_flac
+  let _ = myconvert Sys.argv.(1) new_flac "flac" "flac" in
+  let _ = split_to_files new_flac Sys.argv.(2) in 
+  let files_to_convert = find_files_to_convert "." Sys.argv.(1) in
+  let _ = List.iter convert_to_mp3 files_to_convert in Sys.remove new_flac
 
