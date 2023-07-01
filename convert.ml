@@ -1,5 +1,8 @@
 open Avcodec
 open Split
+open Detect
+open Iconv
+open Taglib
 
 module T = Tqdm.Tqdm
 
@@ -25,14 +28,15 @@ let myprog filename = T.with_bar 1 ~f:(fun tqdm ->
 let split_to_files flac_name cue_name =
     let p1 = String.cat "shntool split -f " "\"" in
     let p2 = String.cat p1 cue_name in 
-    let p3 = String.cat p2 "\" -o flac -t %n-%t \"" in
+    let p3 = String.cat p2 "\" -o flac -t %n__%p__%a__%t \"" in
     let p4 = String.cat p3 flac_name in
     let command = String.cat p4 "\"" in
     mysplit command
 
-let find_files_to_convert folder input_file =
+let find_files_to_convert folder input_file ext =
+    let new_ext = String.cat "." ext in
     let list_files = Sys.readdir folder in
-    let flac_files = List.filter (fun x -> String.equal (Caml.Filename.extension x) ".flac") (Array.to_list list_files) in
+    let flac_files = List.filter (fun x -> String.equal (Caml.Filename.extension x) new_ext) (Array.to_list list_files) in
     let flac_files_without_input = List.filter (fun x -> not (String.equal x input_file)) flac_files in
     List.filter (fun x -> not (String.equal x (String.cat input_file ".flac"))) flac_files_without_input
 
@@ -114,9 +118,22 @@ let myconvert input_file output_file from_codec to_codec =
   Gc.full_major ();
   ()
 
+let tag_file filename =
+    let parts = Str.split (Str.regexp "__") (Caml.Filename.remove_extension filename) in
+    let arr = Array.of_list parts in
+    let f = File.open_file `Autodetect filename in
+    let _ = Taglib.tag_set_title f arr.(3) in
+    let _ = Taglib.tag_set_artist f arr.(1) in
+    let _ = Taglib.tag_set_album f arr.(2) in
+    let _ = Taglib.tag_set_track f (int_of_string arr.(0)) in 
+    let _ = File.file_save f in
+    Taglib.close_file f
+
+
 let convert_to_mp3 filename =
     let output_file = String.cat (Caml.Filename.remove_extension filename) ".mp3" in
-    let _ = myconvert filename  output_file "flac" "libmp3lame" in
+    let output_file_name = Str.(global_replace (Str.regexp "\"") "" output_file) in
+    let _ = myconvert filename  output_file_name "flac" "libmp3lame" in
     Sys.remove filename
 
 let () =
@@ -127,13 +144,21 @@ let () =
     exit 1);
 
   let _ = Printf.printf "Converting %s\n" Sys.argv.(1) in ();
+  let _ = Printf.printf "Converting %s\n" Sys.argv.(2) in ();
 
   Avutil.Log.set_level `Debug;
   Avutil.Log.set_callback print_string;
   
-  let new_flac = (String.cat Sys.argv.(1) ".flac") in 
+  let new_flac = (String.cat Sys.argv.(1) ".flac") in
+  let iscp1251 = detect Sys.argv.(2) in
+  let tmp_cue = "_tmp.cue" in
+  let new_cue = if iscp1251 == 1 then "_tmp.cue" else Sys.argv.(2) in
+  let _ = if iscp1251 == 1 then iconv Sys.argv.(2) new_cue else 0 in
   let _ = myconvert Sys.argv.(1) new_flac "flac" "flac" in
-  let _ = split_to_files new_flac Sys.argv.(2) in 
-  let files_to_convert = find_files_to_convert "." Sys.argv.(1) in
-  let _ = List.iter convert_to_mp3 files_to_convert in Sys.remove new_flac
+  let _ = split_to_files new_flac new_cue in
+  let _ = if Sys.file_exists tmp_cue then Sys.remove new_cue else () in
+  let files_to_convert = find_files_to_convert "." Sys.argv.(1) "flac" in
+  let _ = List.iter convert_to_mp3 files_to_convert in 
+  let files_to_tag = find_files_to_convert "." Sys.argv.(1) "mp3" in
+  let _ = List.iter tag_file files_to_tag in Sys.remove new_flac
 

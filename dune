@@ -6,6 +6,6 @@
 
 (executable
  (name convert)
- (libraries ctypes.foreign stdio ffmpeg-av ffmpeg-avfilter tqdm)
- (flags     :standard -cclib -lshn -ccopt -L/Users/ugxnbmikhs/code/ocaml/project1/split))
+ (libraries ctypes.foreign str taglib stdio ffmpeg-av ffmpeg-avfilter tqdm)
+ (flags     :standard -cclib "-lshn -lmycp -lmyconv" -ccopt -L/Users/ugxnbmikhs/code/ocaml/ll2mp3/libs))
 

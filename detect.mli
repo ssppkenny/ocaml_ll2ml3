@@ -1,0 +1,1 @@
+val detect : string -> int
