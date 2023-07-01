@@ -22,7 +22,7 @@ let myprog filename = T.with_bar 1 ~f:(fun tqdm ->
         Unix.sleepf 0.1;
         T.update tqdm v
     done;
-    T.update tqdm 1;
+    T.update tqdm 1
 ) 
 
 let split_to_files flac_name cue_name =
@@ -33,7 +33,7 @@ let split_to_files flac_name cue_name =
     let command = String.cat p4 "\"" in
     mysplit command
 
-let find_files_to_convert folder input_file ext =
+let find_files folder input_file ext =
     let new_ext = String.cat "." ext in
     let list_files = Sys.readdir folder in
     let flac_files = List.filter (fun x -> String.equal (Caml.Filename.extension x) new_ext) (Array.to_list list_files) in
@@ -144,7 +144,7 @@ let () =
     exit 1);
 
   let _ = Printf.printf "Converting %s\n" Sys.argv.(1) in ();
-  let _ = Printf.printf "Converting %s\n" Sys.argv.(2) in ();
+  let _ = Printf.printf "Using cue file %s\n" Sys.argv.(2) in ();
 
   Avutil.Log.set_level `Debug;
   Avutil.Log.set_callback print_string;
@@ -157,8 +157,8 @@ let () =
   let _ = myconvert Sys.argv.(1) new_flac "flac" "flac" in
   let _ = split_to_files new_flac new_cue in
   let _ = if Sys.file_exists tmp_cue then Sys.remove new_cue else () in
-  let files_to_convert = find_files_to_convert "." Sys.argv.(1) "flac" in
+  let files_to_convert = find_files "." Sys.argv.(1) "flac" in
   let _ = List.iter convert_to_mp3 files_to_convert in 
-  let files_to_tag = find_files_to_convert "." Sys.argv.(1) "mp3" in
+  let files_to_tag = find_files "." Sys.argv.(1) "mp3" in
   let _ = List.iter tag_file files_to_tag in Sys.remove new_flac
 
